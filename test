@@ -1,0 +1,113 @@
+#include "DHT.h"
+#define DHTPIN D5 // what digital pin we're connected to
+//#define analogPin A0
+#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
+DHT dht(DHTPIN, DHTTYPE);
+
+
+#define BLYNK_PRINT Serial    // Comment this out to disable prints and save space
+#include <ESP8266WiFi.h>
+#include <BlynkSimpleEsp8266.h>
+//#include <SimpleTimer.h>
+#include <Wire.h>
+
+int ppm
+
+//#include <SoftwareSerial.h>;
+#define CO2_TX D6     //ports for mh-z19
+#define CO2_RX D7
+SoftwareSerial co2Serial(CO2_TX, CO2_RX);
+byte cmd[9] = {0xFF,0x01,0x86,0x00,0x00,0x00,0x00,0x00,0x79}; 
+unsigned char response[9];
+
+//float analogValue;
+
+
+// You should get Auth Token in the Blynk App.
+// Go to the Project Settings (nut icon).
+//char auth[] = "c56c9e3ee52441ccade2988c2d549fc6";
+//char ssid[] = "bkd";
+//char pass[] = "88888888";
+
+//SimpleTimer timer;
+
+void setup()
+{
+  Serial.begin(9600);
+  co2Serial.begin(9600);
+  Blynk.begin("c56c9e3ee52441ccade2988c2d549fc6", "xiaomi33", "vaa09041999");
+//  timer.setInterval(10000L, readCO2); //sendUptime
+  
+  co2Serial.flush();
+  dht.begin();
+  //pinMode(analogPin, INPUT);
+ }
+
+
+int readCO2()
+{
+
+  byte cmd[9] = {0xFF, 0x01, 0x86, 0x00, 0x00, 0x00, 0x00, 0x00, 0x79};
+  char response[9];
+
+  co2Serial.write(cmd, 9); //request PPM CO2
+  co2Serial.readBytes(response, 9);
+  
+  byte crc = 0;
+  for (int i = 1; i < 8; i++)
+  {
+    crc += response[i];
+  }
+  crc = 255 - crc;
+  crc++;
+
+  if (response[8] != crc)
+  {
+    Serial.println("Wrong crc from co2 sensor!");
+    return -1;
+  }
+  if (response[0] != 0xFF)
+  {
+    Serial.println("Wrong starting byte from co2 sensor!");
+    return -1;
+  }
+  if (response[1] != 0x86)
+  {
+    Serial.println("Wrong command from co2 sensor!");
+    return -1;
+  }
+  int responseHigh = (int) response[2];
+  int responseLow = (int) response[3];
+  int ppm = (256 * responseHigh) + responseLow;
+  return ppm;
+}
+ 
+
+
+//void sendUptime()
+//{
+ // float co2_ppm = readCO2();
+  //Blynk.virtualWrite(1, co2_ppm); // virtual pin 
+//}
+
+
+
+
+
+void loop()
+{
+  Blynk.run();
+ // timer.run();
+  //analogValue = analogRead(analogPin);
+  float h = dht.readHumidity();
+  float t = dht.readTemperature();
+  float c = ppm;
+  //float c = ((10000.0 / 4096.0) * analogValue) + 200;
+  Blynk.virtualWrite(V1, c);
+  Blynk.virtualWrite(V2, h);
+  Blynk.virtualWrite(V3, t);
+  delay(10000);
+  ///
+  http://arduino.esp8266.com/stable/package_esp8266com_index.json
+  
+}
